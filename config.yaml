@@ -1,0 +1,10 @@
+# Daily scrape. Five fields: minute hour day month weekday.
+# Weekday names if you want a specific day: mon, tue, wed, thu, fri, sat, sun.
+# A change to this line is picked up on the next container restart.
+schedule: "0 8 * * *"
+timezone: Europe/London
+run_on_startup: true
+
+# Pause between result pages.
+page_delay_seconds: 0.5
+max_pages: 30

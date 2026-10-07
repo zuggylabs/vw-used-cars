@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+{% from "macros.html" import remove_button %}
+{% block title %}{{ search.name }} · VW used stock{% endblock %}
+{% block head %}{% if running %}<meta http-equiv="refresh" content="5">{% endif %}{% endblock %}
+{% block body %}
+{% macro plate(v) -%}
+  {% if v.url %}<a href="{{ v.url }}" target="_blank" rel="noopener">{{ v.plate or v.id }}</a>{% else %}{{ v.plate or v.id }}{% endif %}
+{%- endmacro %}
+{% macro toggle(identity, hidden, section) -%}
+  <form class="toggle" method="post" action="/search/{{ search.id }}/{{ 'unhide' if hidden else 'hide' }}">
+    <input type="hidden" name="identity" value="{{ identity }}">
+    <input type="hidden" name="stamp" value="{{ stamp }}">
+    <input type="hidden" name="section" value="{{ section }}">
+    <button class="link" type="submit">{{ "Show" if hidden else "Hide" }}</button>
+  </form>
+{%- endmacro %}
+{% macro hidden_chip(v) -%}
+  {% if (v.plate or v.id) in hidden_ids %} <span class="chip">Hidden</span>{% endif %}
+{%- endmacro %}
+{% macro change(v) %}
+  {% set hidden = (v.plate or v.id) in hidden_ids %}
+  <article class="change{% if hidden %} is-hidden{% endif %}">
+    <div class="change-head">
+      <p><strong>{{ plate(v) }}</strong> {{ v.title }}{{ hidden_chip(v) }}</p>
+      {{ toggle(v.plate or v.id, hidden, "changes") }}
+    </div>
+    <p class="muted">{{ v.price|gbp }} · {{ v.mileage|miles }} mi{% if v.reg_year %} · {{ v.reg_year }}{% endif %}{% if v.location %} · {{ v.location }}{% endif %}</p>
+    {{ caller() if caller }}
+  </article>
+{% endmacro %}
+{% macro line(v) %}
+  <article class="change{% if (v.plate or v.id) in hidden_ids %} is-hidden{% endif %}">
+    <p><strong>{{ plate(v) }}</strong> {{ caller() }}{{ hidden_chip(v) }}</p>
+  </article>
+{% endmacro %}
+
+<div class="layout">
+  <div>
+    <h1>{{ search.name }}</h1>
+    {% if error %}<p class="banner bad">{{ error }}</p>{% endif %}
+    {% if running %}<p class="banner">Scrape in progress. This page refreshes on its own.</p>{% endif %}
+    {% if not run %}
+      <p>No scrape has been saved yet.</p>
+      <p><a href="{{ search_url }}" target="_blank" rel="noopener">Open this search on Volkswagen</a></p>
+    {% else %}
+      {% if not is_latest %}<p class="banner">This is an earlier scrape. <a href="/search/{{ search.id }}">Show the latest.</a></p>{% endif %}
+      <p>{{ run.summary.count }} cars{% if hidden_listed %} ({{ hidden_listed }} hidden){% endif %}, average {{ run.summary.average_price|gbp }}. Scraped {{ run.scraped_at|when }}.</p>
+      {% if run.diff.has_previous and run.diff.previous_count is not none %}
+        <p class="muted">Previous scrape {{ run.diff.previous_scraped_at|when }}: {{ run.diff.previous_count }} cars, average {{ run.diff.previous_average_price|gbp }}.</p>
+      {% endif %}
+      <p><a href="{{ run.search_url }}" target="_blank" rel="noopener">Open this search on Volkswagen</a></p>
+
+      <div id="changes">
+      {% if not run.diff.has_previous %}
+        <h2>First snapshot</h2>
+        <p>The next run will show new cars, cars that have gone, and price changes.</p>
+      {% elif not run.diff.added and not run.diff.removed and not run.diff.price_down and not run.diff.price_up and not run.diff.mileage and not run.diff.location and not run.diff.owners and not run.diff.details %}
+        <h2>No changes</h2>
+        <p>Nothing is different from the scrape on {{ run.diff.previous_scraped_at|when }}.</p>
+      {% elif hidden_ids %}
+        <p class="muted">Hidden cars are still tracked, so their price changes and removals show here, greyed out.</p>
+      {% endif %}
+
+      {% if run.diff.price_down %}
+        <h2>Price reduced</h2>
+        {% for item in run.diff.price_down %}
+          {% call change(item.vehicle) %}
+            <p>{{ item.before|gbp }} → {{ item.after|gbp }} <span class="delta down">{{ item.delta|gbpdelta }}</span></p>
+          {% endcall %}
+        {% endfor %}
+      {% endif %}
+
+      {% if run.diff.added %}
+        <h2>New</h2>
+        {% for v in run.diff.added %}{{ change(v) }}{% endfor %}
+      {% endif %}
+
+      {% if run.diff.removed %}
+        <h2>Removed</h2>
+        <p class="muted">No longer in the search. This usually means the car has been sold.</p>
+        {% for v in run.diff.removed %}{{ change(v) }}{% endfor %}
+      {% endif %}
+
+      {% if run.diff.price_up %}
+        <h2>Price increased</h2>
+        {% for item in run.diff.price_up %}
+          {% call change(item.vehicle) %}
+            <p>{{ item.before|gbp }} → {{ item.after|gbp }} <span class="delta up">{{ item.delta|gbpdelta }}</span></p>
+          {% endcall %}
+        {% endfor %}
+      {% endif %}
+
+      {% if run.diff.mileage %}
+        <h2>Mileage</h2>
+        {% for item in run.diff.mileage %}
+          {% call line(item.vehicle) %}{{ item.before|miles }} → {{ item.after|miles }} mi{% endcall %}
+        {% endfor %}
+      {% endif %}
+
+      {% if run.diff.location %}
+        <h2>Dealer</h2>
+        {% for item in run.diff.location %}
+          {% call line(item.vehicle) %}{{ item.before or "blank" }} → {{ item.after or "blank" }}{% endcall %}
+        {% endfor %}
+      {% endif %}
+
+      {% if run.diff.owners %}
+        <h2>Previous owners</h2>
+        {% for item in run.diff.owners %}
+          {% call line(item.vehicle) %}{{ item.before or "blank" }} → {{ item.after or "blank" }}{% endcall %}
+        {% endfor %}
+      {% endif %}
+
+      {% if run.diff.details %}
+        <h2>Other details</h2>
+        {% for item in run.diff.details %}
+          {% call line(item.vehicle) %}{% for change in item.changes %}{{ change.field }} {{ change.before or "blank" }} → {{ change.after or "blank" }}{% if not loop.last %}; {% endif %}{% endfor %}{% endcall %}
+        {% endfor %}
+      {% endif %}
+      </div>
+
+      <h2 id="cars">Cars in this scrape</h2>
+      {% if not option_count %}
+        <p class="muted">Add the options you look for under <a href="/#options">Options to look for</a> on the home page, then record them per car with Edit options.</p>
+      {% elif unchecked %}
+        <p class="muted">{{ unchecked }} of these cars have no options checked yet. Open the listing, look at the photos, then use Edit options.</p>
+      {% endif %}
+      {% if visible %}
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Plate</th>
+                <th>Car</th>
+                <th class="num">Price</th>
+                <th class="num">Miles</th>
+                <th>Owners</th>
+                <th>Dealer</th>
+                <th>Options</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for v in visible %}
+                <tr>
+                  <td>{{ plate(v) }}</td>
+                  <td>
+                    {{ v.title }}
+                    <span class="sub">{{ v.colour }}{% if v.reg_year %} · {{ v.reg_month }} {{ v.reg_year }}{% endif %}{% if v.transmission %} · {{ v.transmission }}{% endif %}</span>
+                  </td>
+                  <td class="num">{{ v.price|gbp }}</td>
+                  <td class="num">{{ v.mileage|miles }}</td>
+                  <td>{% if v.previous_owners == "UNKNOWN" %}<span class="missing">Not shown</span>{% else %}{{ v.previous_owners }}{% endif %}</td>
+                  <td>{{ v.location }}</td>
+                  <td>
+                    {% set opts = car_options.get(v.plate or v.id) %}
+                    {% if opts %}
+                      {% for name in opts.fitted[:3] %}<span class="chip fitted">{{ name }}</span>{% else %}<span class="muted">None of the listed options</span>{% endfor %}
+                      {% if opts.fitted|length > 3 %}
+                        <details class="more">
+                          <summary>+{{ opts.fitted|length - 3 }} more</summary>
+                          {% for name in opts.fitted[3:] %}<span class="chip fitted">{{ name }}</span>{% endfor %}
+                        </details>
+                      {% endif %}
+                      {% if opts.unchecked %}<span class="sub">{{ opts.unchecked }} not checked</span>{% endif %}
+                    {% else %}
+                      <span class="missing">Not checked</span>
+                    {% endif %}
+                    <a class="sub" href="/car/{{ v.plate or v.id }}?back={{ (back ~ '#cars')|urlencode }}">Edit options</a>
+                  </td>
+                  <td>{{ toggle(v.plate or v.id, false, "cars") }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% elif run.vehicles %}
+        <p>Every car in this scrape is hidden.</p>
+      {% else %}
+        <p>No cars matched this search.</p>
+      {% endif %}
+    {% endif %}
+
+    {% if hidden_rows %}
+      <details id="hidden" class="hidden-cars">
+        <summary>Hidden cars ({{ hidden_rows|length }})</summary>
+        <p class="muted">These are left out of the list above but still tracked. Show puts a car back.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Plate</th>
+                <th>Car</th>
+                <th class="num">Price</th>
+                <th>Hidden</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in hidden_rows %}
+                {% set entry = row.entry %}
+                {% set v = row.vehicle %}
+                <tr>
+                  <td>{% if entry.url %}<a href="{{ entry.url }}" target="_blank" rel="noopener">{{ entry.plate or entry.identity }}</a>{% else %}{{ entry.plate or entry.identity }}{% endif %}</td>
+                  <td>{{ entry.title }}</td>
+                  <td class="num">
+                    {% if v %}
+                      {{ v.price|gbp }}
+                      {% if entry.price is not none and v.price is not none and v.price != entry.price %}
+                        <span class="sub">{{ entry.price|gbp }} when hidden</span>
+                      {% endif %}
+                    {% else %}
+                      <span class="muted">Not in this scrape</span>
+                    {% endif %}
+                  </td>
+                  <td>{{ entry.hidden_at|when }}</td>
+                  <td>{{ toggle(entry.identity, true, "hidden") }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </details>
+      <script>if (location.hash === "#hidden") document.getElementById("hidden").open = true;</script>
+    {% endif %}
+  </div>
+  <aside>
+    <h2>Earlier scrapes</h2>
+    {% if earlier %}
+      <ul class="runs">
+        {% for old in earlier %}
+          <li>
+            <a class="{% if old.current %}current{% endif %}" href="/search/{{ search.id }}/{{ old.stamp }}">{{ old.scraped_at|when }}</a>
+            <span class="sub">{{ old.count }} cars{% if old.changes is not none %} · {{ old.changes }} changes{% endif %}</span>
+          </li>
+        {% endfor %}
+      </ul>
+      <p><a href="/search/{{ search.id }}/history">Plate history</a></p>
+    {% else %}
+      <p class="muted">None yet.</p>
+    {% endif %}
+    {{ remove_button(search, "Remove this search") }}
+  </aside>
+</div>
+{% endblock %}

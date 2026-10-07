@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}VW used stock{% endblock %}</title>
+  {% block head %}{% endblock %}
+  <style>
+    :root {
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e6e1d8;
+      --bg: #f4f1ea;
+      --paper: #fffcf7;
+      --navy: #001e50;
+      --down: #166534;
+      --up: #9a3412;
+      --removed: #9f1239;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 "Segoe UI", sans-serif; }
+    a { color: var(--navy); }
+    .topbar { background: var(--navy); color: white; }
+    .topbar a { color: white; text-decoration: none; }
+    .topbar-inner, .wrap { max-width: 980px; margin: 0 auto; padding: 18px 20px; }
+    .topbar-inner { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+    .brand { font-weight: 650; letter-spacing: 0.01em; }
+    button, .button { font: inherit; background: white; color: var(--navy); border: 0; border-radius: 8px; padding: 8px 14px; cursor: pointer; text-decoration: none; }
+    button:disabled { opacity: 0.65; cursor: default; }
+    button.primary { background: var(--navy); color: white; }
+    button.quiet { background: transparent; color: var(--removed); padding: 0; text-decoration: underline; }
+    button.link { background: transparent; color: var(--muted); padding: 0; font-size: 14px; text-decoration: underline; }
+    .change-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+    .change.is-hidden { opacity: 0.55; }
+    .hidden-cars, details.section { margin-top: 28px; }
+    .hidden-cars summary, details.section summary { cursor: pointer; font-size: 20px; font-weight: 600; }
+    .chip.fitted { background: #dcfce7; color: var(--down); }
+    td .chip { display: inline-block; margin: 0 4px 4px 0; }
+    details.more summary { display: inline-block; cursor: pointer; font-size: 13px; color: var(--navy); text-decoration: underline; list-style: none; margin-bottom: 4px; }
+    details.more summary::-webkit-details-marker { display: none; }
+    details.more[open] summary { display: none; }
+    .option-grid { display: grid; grid-template-columns: 1fr auto auto auto; gap: 6px 18px; align-items: center; }
+    .option-grid .head { font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+    .option-grid label { display: flex; gap: 6px; align-items: center; font-weight: 400; }
+    .option-grid .name { font-weight: 600; }
+    .form { display: grid; gap: 12px; margin-top: 12px; }
+    .form label { display: grid; gap: 4px; font-weight: 600; }
+    .form input { font: inherit; font-weight: 400; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: white; width: 100%; }
+    .form button { justify-self: start; }
+    .wrap { padding-top: 28px; padding-bottom: 72px; }
+    h1 { font-size: 28px; line-height: 1.2; margin: 0 0 8px; }
+    h2 { font-size: 20px; margin: 28px 0 8px; }
+    .muted { color: var(--muted); }
+    .lede { max-width: 62ch; }
+    .banner { background: #fff7ed; border: 1px solid #fdba74; border-radius: 8px; padding: 10px 12px; margin: 12px 0; }
+    .banner.bad { background: #fff1f2; border-color: #fda4af; }
+    .cards { display: grid; gap: 12px; margin-top: 20px; }
+    .card { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+    .card h2 { margin: 0 0 6px; }
+    .card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+    .card-head .remove { font-size: 14px; }
+    aside .remove { margin-top: 20px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .chip { font-size: 13px; background: #efece4; border-radius: 999px; padding: 2px 8px; }
+    .chip.price_down { background: #dcfce7; color: var(--down); }
+    .chip.price_up { background: #ffedd5; color: var(--up); }
+    .chip.removed { background: #ffe4e6; color: var(--removed); }
+    .chip.added { background: #dbeafe; color: #1e3a8a; }
+    .change { padding: 12px 0; border-bottom: 1px solid var(--line); }
+    .change p { margin: 2px 0; }
+    .delta { font-weight: 650; }
+    .delta.down { color: var(--down); }
+    .delta.up { color: var(--up); }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+    th { font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .sub { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
+    .missing { color: var(--up); }
+    .layout { display: grid; grid-template-columns: 1fr 220px; gap: 28px; align-items: start; }
+    .runs { list-style: none; padding: 0; margin: 8px 0 0; }
+    .runs li { margin: 0 0 8px; }
+    .runs .current { font-weight: 650; }
+    @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="/">VW used stock</a>
+      <form method="post" action="/run">
+        <button type="submit" {% if running %}disabled{% endif %}>
+          {% if running %}Scraping…{% else %}Run scrape now{% endif %}
+        </button>
+      </form>
+    </div>
+  </div>
+  <main class="wrap">
+    {% block body %}{% endblock %}
+  </main>
+</body>
+</html>

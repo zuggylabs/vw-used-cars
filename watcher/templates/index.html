@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% from "macros.html" import remove_button %}
+{% block title %}VW used stock{% endblock %}
+{% block head %}{% if running %}<meta http-equiv="refresh" content="5">{% endif %}{% endblock %}
+{% block body %}
+  <h1>What changed since the last scrape</h1>
+  <p class="lede">Each search is collected on the schedule, saved, and compared with the previous run. A car that disappears has usually been sold or taken off the site.</p>
+  {% if next_run %}<p class="muted">Next scheduled scrape: {{ next_run }} ({{ timezone }}).</p>{% endif %}
+  {% if running %}<p class="banner">Scrape in progress. This page refreshes on its own.</p>{% endif %}
+  {% if run_error %}<p class="banner bad">{{ run_error }}</p>{% endif %}
+  <div class="cards">
+    {% for card in cards %}
+      <article class="card">
+        <div class="card-head">
+          <h2><a href="/search/{{ card.search.id }}">{{ card.search.name }}</a></h2>
+          {{ remove_button(card.search, "Remove") }}
+        </div>
+        {% if card.error %}<p class="banner bad">{{ card.error }}</p>{% endif %}
+        {% if card.run %}
+          <p>{{ card.run.summary.count }} cars{% if card.hidden %} ({{ card.hidden }} hidden){% endif %}, average {{ card.run.summary.average_price|gbp }}</p>
+          <p class="muted">Last scrape {{ card.run.scraped_at|when }}</p>
+          <div class="chips">
+            {% for kind, label in card.labels %}
+              <span class="chip {{ kind }}">{{ label }}</span>
+            {% endfor %}
+          </div>
+        {% elif card.queued %}
+          <p class="muted">First scrape is queued.</p>
+        {% else %}
+          <p class="muted">No scrape yet.{% if not running %} Use Run scrape now.{% endif %}</p>
+        {% endif %}
+      </article>
+    {% else %}
+      <p class="muted">No searches yet. Add one below.</p>
+    {% endfor %}
+  </div>
+
+  <h2 id="add">Add a search</h2>
+  <p class="muted">Set up the search on <a href="https://usedcars.volkswagen.co.uk/en/vehicle_search/volkswagen/all-models" target="_blank" rel="noopener">usedcars.volkswagen.co.uk</a>, then copy the address of the results page and paste it here. It is scraped straight away, then on the schedule with the others.</p>
+  <form class="card form" method="post" action="/searches">
+    {% if form_error %}<p class="banner bad">{{ form_error }}</p>{% endif %}
+    <label>
+      Search address
+      <input type="url" name="url" value="{{ form.url }}" required placeholder="https://usedcars.volkswagen.co.uk/en/vehicle_search/volkswagen/all-models?…">
+    </label>
+    <label>
+      Name <span class="muted">(optional)</span>
+      <input type="text" name="name" value="{{ form.name }}" maxlength="80" placeholder="Grey Golf R">
+    </label>
+    <button class="primary" type="submit">Add search</button>
+  </form>
+
+  <details id="options" class="section">
+    <summary>Options to look for ({{ options|length }})</summary>
+    <p class="muted">Dealers rarely list options properly, so this is your own checklist. Each car has an <em>Edit options</em> link where you mark what you can see in the photos. Rename an option here, clear its name to remove it, or add a new one at the bottom.</p>
+    <form class="card form" method="post" action="/options">
+      {% for option in options %}
+        <input type="text" name="option-{{ option.id }}" value="{{ option.name }}" maxlength="80" aria-label="Option name">
+      {% endfor %}
+      <label>
+        Add an option
+        <input type="text" name="new" maxlength="80" placeholder="Panoramic sunroof">
+      </label>
+      <button class="primary" type="submit">Save options</button>
+    </form>
+  </details>
+  <script>if (location.hash === "#options") document.getElementById("options").open = true;</script>
+{% endblock %}

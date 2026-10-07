@@ -1,0 +1,5 @@
+{% macro remove_button(search, label) -%}
+  <form class="remove" method="post" action="/search/{{ search.id }}/remove" onsubmit='return confirm({{ ("Stop watching " ~ search.name ~ "? Its saved scrapes stay in the data folder.")|tojson }});'>
+    <button class="quiet" type="submit">{{ label }}</button>
+  </form>
+{%- endmacro %}

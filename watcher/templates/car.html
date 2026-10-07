@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Options for {{ identity }} · VW used stock{% endblock %}
+{% block body %}
+  <p><a href="{{ back or '/' }}">← Back</a></p>
+  <h1>{{ identity }}{% if vehicle %} · {{ vehicle.title }}{% endif %}</h1>
+  {% if vehicle %}
+    <p class="muted">{{ vehicle.price|gbp }} · {{ vehicle.mileage|miles }} mi{% if vehicle.reg_year %} · {{ vehicle.reg_month }} {{ vehicle.reg_year }}{% endif %}{% if vehicle.colour %} · {{ vehicle.colour }}{% endif %}{% if vehicle.location %} · {{ vehicle.location }}{% endif %}</p>
+    {% if vehicle.url %}<p><a href="{{ vehicle.url }}" target="_blank" rel="noopener">Open the listing and look through the photos</a></p>{% endif %}
+  {% else %}
+    <p class="muted">This car is not in the latest scrape of any search. What you recorded is kept in case it comes back.</p>
+  {% endif %}
+  {% if car.updated_at %}<p class="muted">Last updated {{ car.updated_at|when }}.</p>{% endif %}
+
+  {% if not options %}
+    <p>There are no options to check yet. Add some under <a href="/#options">Options to look for</a> on the home page.</p>
+  {% else %}
+    <form class="card form" method="post" action="/car/{{ identity }}">
+      <input type="hidden" name="back" value="{{ back or '' }}">
+      <div class="option-grid">
+        <span class="head">Option</span>
+        <span class="head">Fitted</span>
+        <span class="head">Not fitted</span>
+        <span class="head">Not checked</span>
+        {% for option in options %}
+          {% set state = "fitted" if option.id in car.fitted else ("not_fitted" if option.id in car.not_fitted else "") %}
+          <span class="name">{{ option.name }}</span>
+          <label><input type="radio" name="state-{{ option.id }}" value="fitted" {% if state == "fitted" %}checked{% endif %}> Yes</label>
+          <label><input type="radio" name="state-{{ option.id }}" value="not_fitted" {% if state == "not_fitted" %}checked{% endif %}> No</label>
+          <label><input type="radio" name="state-{{ option.id }}" value="" {% if not state %}checked{% endif %}> ?</label>
+        {% endfor %}
+      </div>
+      <button class="primary" type="submit">Save</button>
+    </form>
+  {% endif %}
+{% endblock %}

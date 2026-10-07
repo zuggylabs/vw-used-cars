@@ -1,0 +1,7 @@
+requests>=2.32
+tzdata>=2024.1
+pytz>=2024.1
+flask>=3.0
+APScheduler>=3.10
+PyYAML>=6.0
+waitress>=3.0

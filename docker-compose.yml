@@ -1,0 +1,13 @@
+services:
+  watcher:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      TZ: Europe/London
+      DATA_DIR: /data
+      CONFIG_PATH: /app/config.yaml
+    volumes:
+      - ./data:/data
+      - ./config.yaml:/app/config.yaml:ro
+    restart: unless-stopped
